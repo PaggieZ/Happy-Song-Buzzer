@@ -1,17 +1,20 @@
 #include "noteScore.h"
 #include "pitches.h"
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include "SSD1306Ascii.h"
+#include "SSD1306AsciiWire.h"
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define BuzzB 3 // buzzer to display the bass part
-#define BuzzV1 6 // buzzer to display the violin1 part (main melody)
-#define BuzzV2 9 // buzzer to display the violin2 part (counter-melody)
+// 0X3C+SA0 - 0x3C or 0x3D
+#define I2C_ADDRESS 0x3C
+// Define proper RST_PIN if required.
+#define RST_PIN -1
+SSD1306AsciiWire oled;
 
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+#define BuzzB 12 // buzzer to display the bass part
+#define BuzzV1 10 // buzzer to display the violin1 part (main melody)
+#define BuzzV2 8 // buzzer to display the violin2 part (counter-melody)
+#define capPin 2
+#define NAME "  MAGGIE!"
 
 /**************************** GLOBAL VARIABLES ***************************/
 
@@ -32,9 +35,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 /*    Since the music score is made up of arrays, we need an index for 
  * each array to run through the entire music score.
  */
-  unsigned int V1index = 0; // index for main melody(V1)
-  unsigned int V2index = 0; // index for counter melody(V2)
-  unsigned int Bindex = 0; // index for bass(B)
+  byte V1index = 0; // index for main melody(V1)
+  byte V2index = 0; // index for counter melody(V2)
+  byte Bindex = 0; // index for bass(B)
 
 /*    In order for a buzzer to play in the right tone, we need to turn the
  * buzzer on and off for a constant period of time. Check "notePeriod.h" 
@@ -76,62 +79,134 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
   unsigned long maxNoteLength = 0; // max for NL
 void setup() {
   Serial.begin(115200);
+  Wire.setClock(400000L);
+  #if RST_PIN >= 0
+  oled.begin(&Adafruit128x64, I2C_ADDRESS, RST_PIN);
+#else // RST_PIN >= 0
+  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+#endif // RST_PIN >= 0
 
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
-  }
+  oled.setFont(Adafruit5x7);
+
+  uint32_t m = micros();
+  oled.clear();
+  oled.set1X();
+  oled.println("         2024   ");
+  oled.println();
+  oled.set2X();
+  oled.println("   HAPPY");
+  oled.println("GRADUATION");
+  oled.println(NAME);
   delay(2000);
   // set all the pins connected with a buzzer to OUTPUT mode
   pinMode(BuzzB, OUTPUT); // set BuzzB to OUTPUT mode
   pinMode(BuzzV1, OUTPUT); // set BuzzV1 to OUTPUT mode
   pinMode(BuzzV2, OUTPUT); // set BuzzV2 to OUTPUT mode
-  displayText("Happy!", 40, 30, 1);
-  play(melody_V1_1, noteLength1, 4, melody_V2_1, noteLength1, 4, melody_B_1, noteLength1, 4);
-  displayText("Happy!", 30, 25, 2);
-  play(melody_V1_2, noteLength1, 4, melody_V2_2, noteLength1, 4, melody_B_2, noteLength1, 4);
-  displayText("Happy!", 15, 20, 3);
-  play(melody_V1_3, noteLength2, 4, melody_V2_3, noteLength2, 4, melody_B_3, noteLength2, 4);
-  play(melody0, noteLength0, 1, melody0, noteLength0, 1, melody_B_4, noteLength1, 4);
-  displayText("Happy!", 15, 16, 3);
-  play(melody_V1_5, noteLength1, 4, melody0, noteLength0, 1, melody_B_5, noteLength1, 4);
-  displayText("Happy!", 15, 24, 3);
-  play(melody_V1_6, noteLength1, 4, melody0, noteLength0, 1, melody_B_6, noteLength1, 4);
-  displayText("Happy!", 15, 16, 3);
-  play(melody_V1_7, noteLength2, 4, melody0, noteLength0, 1, melody_B_7, noteLength2, 4);
-  displayText("Happy!", 15, 24, 3);
-  play(melody0, noteLength0, 1, melody0, noteLength0, 1, melody_B_8, noteLength1, 4);
-  // if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-  //   Serial.println(F("SSD1306 allocation failed"));
-  //   for(;;);
-  // }
-  // delay(2000);
-  // display.clearDisplay();
-
-  // display.setTextSize(1);
-  // display.setTextColor(WHITE);
-  // display.setCursor(0, 10);
-  // // Display static text
-  // display.println("Hello, world!");
-  // display.display(); 
-
-
+  pinMode(capPin, INPUT);
+  playSong();
 }
 
 void loop() {
+  oled.clear();
+  oled.set2X();
+  oled.println();
+  oled.println("<- Tap to");
+  oled.println("play again~");
 
-  // no need to repeat the melody.
+  while(digitalRead(capPin) == 0);
+  oled.clear();
+  oled.set1X();
+  oled.println("         2024   ");
+  oled.println();
+  oled.set2X();
+  oled.println("   HAPPY");
+  oled.println("GRADUATION");
+  oled.println(NAME);
+  delay(1000);
+  playSong();
 }
 
-void displayText(String text, int x_pos, int y_pos, int size) {
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setTextSize(size);
-  display.setCursor(x_pos, y_pos);
-  // Display static text
-  display.println(text);
-  display.display(); 
+void playSong() {
+  playM1_4();
+  playM5_8();
+  playM9_12();
+  playM13_16();
+  playM17_M20();
+  playM21_M24();
+  playM25_M28();
+  playM29_M31();
+  delay(1000);
 }
+
+
+void playM1_4() {
+  play(melody_V1_1, noteLength1, 4, melody_V2_1, noteLength1, 4, melody_B_1, noteLength1, 4);
+  play(melody_V1_2, noteLength1, 4, melody_V2_2, noteLength1, 4, melody_B_2, noteLength1, 4);
+  play(melody_V1_3, noteLength2, 4, melody_V2_3, noteLength2, 4, melody_B_3, noteLength2, 4);
+  play(melody0, noteLength0, 1, melody0, noteLength0, 1, melody_B_4, noteLength1, 4);
+}
+
+void playM5_8() {
+  //displayText("Happy!", 15, 16, 3);
+  play(melody_V1_5, noteLength1, 4, melody0, noteLength0, 1, melody_B_1, noteLength1, 4);
+  //displayText("Happy!", 15, 24, 3);
+  play(melody_V1_6, noteLength1, 4, melody0, noteLength0, 1, melody_B_2, noteLength1, 4);
+  //displayText("Happy!", 15, 16, 3);
+  play(melody_V1_7, noteLength2, 4, melody0, noteLength0, 1, melody_B_3, noteLength2, 4);
+  //displayText("Happy!", 15, 24, 3);
+  play(melody0, noteLength0, 1, melody0, noteLength0, 1, melody_B_4, noteLength1, 4);
+}
+
+void playM9_12() {
+  //displayText("Happy!", 15, 16, 3);
+  play(melody_V1_9, noteLength3, 8, melody_V2_9, noteLength4, 4, melody_B_9, noteLength1, 4);
+  play(melody_V1_10, noteLength3, 8, melody_V2_10, noteLength4, 4, melody_B_10, noteLength1, 4);
+  play(melody_V1_11, noteLength4, 4, melody_V2_11, noteLength4, 4, melody_B_11, noteLength1, 4);
+  play(melody0, noteLength0, 1, melody0, noteLength0, 1, melody_B_12, noteLength3, 8);
+}
+
+void playM13_16() {
+  play(melody_V1_13, noteLength3, 8, melody_V1_13, noteLength3, 8, melody_B_9, noteLength1, 4);
+  play(melody_V1_14, noteLength3, 8, melody_V1_14, noteLength3, 8, melody_B_10, noteLength1, 4);
+  play(melody_V1_15, noteLength4, 4, melody_V1_15, noteLength4, 4, melody_B_11, noteLength1, 4);
+  play(melody0, noteLength0, 1, melody_V2_16, noteLength3, 8, melody_V2_16, noteLength3, 8);
+}
+
+void playM17_M20() {
+  play(melody_V1_17, noteLength3, 8, melody_V1_17, noteLength3, 8, melody_B_17, noteLength3, 8);
+  play(melody_V1_18, noteLength3, 8, melody_V1_18, noteLength3, 8, melody_B_18, noteLength3, 8);
+  play(melody_V1_19, noteLength3, 8, melody_V1_19, noteLength3, 8, melody_B_19, noteLength3, 8);
+  play(melody_V1_20, noteLength3, 8, melody_V1_20, noteLength3, 8, melody_B_20, noteLength3, 8);
+}
+
+void playM21_M24() {
+  play(melody_V1_21, noteLength3, 8, melody_V1_21, noteLength3, 8, melody_B_21, noteLength3, 8);
+  play(melody_V1_22, noteLength3, 8, melody_V1_22, noteLength3, 8, melody_B_22, noteLength3, 8);
+  play(melody_V1_23, noteLength3, 8, melody_V1_23, noteLength3, 8, melody_B_23, noteLength3, 8);
+  play(melody_V1_24, noteLength3, 8, melody_V1_24, noteLength3, 8, melody_B_24, noteLength3, 8);
+}
+
+void playM25_M28() {
+  play(melody_V1_25, noteLength3, 8, melody_V2_25, noteLength4, 4, melody_B_25, noteLength1, 4);
+  play(melody_V1_26, noteLength3, 8, melody_V2_26, noteLength4, 4, melody_B_26, noteLength1, 4);
+  play(melody_V1_27, noteLength4, 4, melody_V2_27, noteLength4, 4, melody_B_27, noteLength1, 4);
+  play(melody0, noteLength0, 1, melody_V2_28, noteLength4, 4, melody_B_28, noteLength1, 4);
+}
+
+void playM29_M31() {
+  play(melody_V1_29, noteLength3, 8, melody_V1_29, noteLength3, 8, melody_B_29, noteLength1, 4);
+  play(melody_V1_30, noteLength3, 8, melody_V1_30, noteLength3, 8, melody_B_30, noteLength1, 4);
+  play(melody_V1_31, noteLength5, 2, melody_V1_31, noteLength5, 2, melody_B_31, noteLength5, 2);
+}
+// void displayText(String text, int x_pos, int y_pos, int size) {
+//   display.clearDisplay();
+//   display.setTextColor(WHITE);
+//   display.setTextSize(size);
+//   display.setCursor(x_pos, y_pos);
+//   // Display static text
+//   display.println(text);
+//   display.display(); 
+// }
 void play(int V1note[], byte V1beat[], int V1size, 
           int V2note[], byte V2beat[], int V2size, 
           int Bnote[], byte Bbeat[], int Bsize) {
@@ -163,18 +238,6 @@ void play(int V1note[], byte V1beat[], int V1size,
   maxNextSwitchTime = maxVal(V1nextSwitchTime, V2nextSwitchTime, BnextSwitchTime);
   minNoteLength = minVal(V1noteLength, V2noteLength, BnoteLength);
   maxNoteLength = maxVal(V1noteLength, V2noteLength, BnoteLength);
-
-  // display the currently playing note on the LCD screen
-  // display.clearDisplay();
-  //     display.setTextSize(1);
-  //     display.setTextColor(WHITE);
-  //     display.setCursor(0, 0);
-  //     display.print(displayNote(V1note[V1index])); // display V1 note name
-  //     display.setCursor(50, 0);
-  //     display.print(displayNote(V2note[V2index])); // display V1 note name
-  //     display.setCursor(100, 0);
-  //     display.println(displayNote(Bnote[Bindex])); // display V1 note name
-  //     display.display(); 
 
   // use a while loop to play notes in this beat
   // when the beat is not over
