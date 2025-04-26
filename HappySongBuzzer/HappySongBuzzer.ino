@@ -10,9 +10,9 @@
 #define RST_PIN -1
 SSD1306AsciiWire oled;
 
-#define BuzzB 12 // buzzer to display the bass part
-#define BuzzV1 10 // buzzer to display the violin1 part (main melody)
-#define BuzzV2 8 // buzzer to display the violin2 part (counter-melody)
+#define BuzzB 12 // buzzer to play the bass part
+#define BuzzV1 10 // buzzer to play the violin1 part (main melody)
+#define BuzzV2 8 // buzzer to play the violin2 part (counter-melody)
 #define capPin 2
 #define NAME "  MAGGIE!"
 
