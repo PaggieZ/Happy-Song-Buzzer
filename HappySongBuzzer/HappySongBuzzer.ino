@@ -14,7 +14,7 @@ SSD1306AsciiWire oled;
 #define BuzzV1 10 // buzzer to play the violin1 part (main melody)
 #define BuzzV2 8 // buzzer to play the violin2 part (counter-melody)
 #define capPin 2
-#define NAME "  MAGGIE!"
+#define NAME "  *NAME*!"
 
 /**************************** GLOBAL VARIABLES ***************************/
 
